@@ -1,9 +1,9 @@
 {
-    "name": "angular2-jwt-authentication-example",
+    "name": "ibole-prototype-presentation-angular",
     "version": "1.0.0",
     "repository": {
         "type": "git",
-        "url": "https://github.com/cornflourblue/angular2-jwt-authentication-example.git"
+        "url": "https://github.com/benson-git/ibole-prototype-presentation-angular.git"
     },
     "scripts": {
         "start": "tsc && concurrently \"npm run tsc:w\" \"npm run lite\" ",
