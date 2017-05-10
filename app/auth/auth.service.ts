@@ -7,11 +7,14 @@ import {Constants} from "./Constants";
 
 @Injectable()
 export class AuthService {
-
-    constructor(private http: AuthHttp, private jwtHelper: JwtHelper) {}
+   //don't need change to AuthHttp here as in login/logout process
+    constructor(private http: Http, private jwtHelper: JwtHelper) {}
 
     login(url: string, username: string, password: string): Observable<boolean> {
-        return this.http.post(url, JSON.stringify({ username: username, password: password }))
+        let headers = new Headers({ 'Content-Type': 'application/json;charset=UTF-8' });
+        let options = new RequestOptions({ headers: headers });
+        return this.http.post(url, JSON.stringify({ username: username, password: password }),
+            options)
             .map((response: Response) => {
                 // login successful if there's a jwt token in the response
                 let token = response.json() && response.json().token;

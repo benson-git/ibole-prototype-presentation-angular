@@ -17,6 +17,7 @@ import "rxjs/add/observable/fromPromise";
 import "rxjs/add/observable/defer";
 import "rxjs/add/operator/mergeMap";
 import {Constants} from "./Constants";
+import any = jasmine.any;
 
 export interface IAuthConfig {
     globalHeaders: Array<Object>;
@@ -231,7 +232,7 @@ function objectAssign(target: any, ...source: any[]) {
 }
 
 //~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Start of token decode and token expiration time checking~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-//https://github.com/ninjatronic/angular-base64/blob/master/angular-base64.js
+//https://github.com/stranger82/angular-utf8-base64/blob/master/angular-utf8-base64.js
 
 /**
  * Helper class to decode and find JWT expiration.
@@ -239,58 +240,83 @@ function objectAssign(target: any, ...source: any[]) {
 
 export class JwtHelper {
 
-    private PADCHAR = '=';
-    private ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+    private ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
 
-    private getByte64(s: string, i: number) : number {
-        var idx = this.ALPHA.indexOf(s.charAt(i));
-        if (idx === -1) {
-            throw "Cannot decode base64";
+    /**
+     * utf8-base64 decode.
+     * @param input
+     * @returns {string}
+     */
+    public  urlBase64Decode(input: string) : string{
+        // Replace non-url compatible chars with base64 standard chars
+        input = input
+            .replace(/-/g, '+')
+            .replace(/_/g, '/');
+
+        // Pad out with standard base64 required padding characters
+        var pad = input.length % 4;
+        if(pad) {
+            if(pad === 1) {
+                throw new Error('InvalidLengthError: Input base64url string is the wrong length to determine padding');
+            }
+            input += new Array(5-pad).join('=');
         }
-        return idx;
+
+        return this.base64Decode(input);
+    }
+    public base64Decode(s: string) : string {
+        /* jshint bitwise:false */
+        s = s.replace(/\s/g, '');
+        if (s.length % 4)
+            throw new Error('InvalidLengthError: decode failed: The string to be decoded is not the correct length for a base64 encoded string.');
+        if(/[^A-Za-z0-9+\/=\s]/g.test(s))
+            throw new Error('InvalidCharacterError: decode failed: The string contains characters invalid in a base64 encoded string.');
+
+        var buffer = this.fromUtf8(s),
+            position = 0,
+            result,
+            len = buffer.length;
+            result = '';
+            while (position < len) {
+                if (buffer[position] < 128)
+                    result += String.fromCharCode(buffer[position++]);
+                else if (buffer[position] > 191 && buffer[position] < 224)
+                    result += String.fromCharCode(((buffer[position++] & 31) << 6) | (buffer[position++] & 63));
+                else
+                    result += String.fromCharCode(((buffer[position++] & 15) << 12) | ((buffer[position++] & 63) << 6) | (buffer[position++] & 63));
+            }
+            return result;
+
     }
 
-    public base64Decode(s: string) : string {
-        // convert to string
-        s = "" + s;
-        var pads, i, b10;
-        var imax = s.length;
-        if (imax === 0) {
-            return s;
+    public fromUtf8(s: string) : any {
+        /* jshint bitwise:false */
+        let position = -1,
+            len, buffer = [],
+            lookup: any = null,
+            enc: any = [, , , ];
+        if (!lookup) {
+            len = this.ALPHA.length;
+            lookup = {};
+            while (++position < len)
+                lookup[this.ALPHA.charAt(position)] = position;
+            position = -1;
         }
-
-        if (imax % 4 !== 0) {
-            throw "Cannot decode base64";
-        }
-
-        pads = 0;
-        if (s.charAt(imax - 1) === this.PADCHAR) {
-            pads = 1;
-            if (s.charAt(imax - 2) === this.PADCHAR) {
-                pads = 2;
-            }
-            // either way, we want to ignore this last block
-            imax -= 4;
-        }
-
-        var x = [];
-        for (i = 0; i < imax; i += 4) {
-            b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12) |
-                (this.getByte64(s, i + 2) << 6) | this.getByte64(s, i + 3);
-            x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
-        }
-
-        switch (pads) {
-            case 1:
-                b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12) | (this.getByte64(s, i + 2) << 6);
-                x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
+        len = s.length;
+        while (++position < len) {
+            enc[0] = lookup[s.charAt(position)];
+            enc[1] = lookup[s.charAt(++position)];
+            buffer.push((enc[0] << 2) | (enc[1] >> 4));
+            enc[2] = lookup[s.charAt(++position)];
+            if (enc[2] === 64)
                 break;
-            case 2:
-                b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12);
-                x.push(String.fromCharCode(b10 >> 16));
+            buffer.push(((enc[1] & 15) << 4) | (enc[2] >> 2));
+            enc[3] = lookup[s.charAt(++position)];
+            if (enc[3] === 64)
                 break;
+            buffer.push(((enc[2] & 3) << 6) | enc[3]);
         }
-        return x.join('');
+        return buffer;
     }
 
     public decodeToken(token: string): any {
@@ -300,7 +326,8 @@ export class JwtHelper {
             throw new Error('JWT must have 3 parts');
         }
 
-        let decoded = this.base64Decode(parts[1]);
+        let decoded = this.urlBase64Decode(parts[1]);
+        console.log("token decodedparts:"+decoded)
         if (!decoded) {
             throw new Error('Cannot decode the token');
         }
