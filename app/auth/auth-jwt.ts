@@ -16,7 +16,7 @@ import {Observable} from "rxjs/Observable";
 import "rxjs/add/observable/fromPromise";
 import "rxjs/add/observable/defer";
 import "rxjs/add/operator/mergeMap";
-import {CONSTANT} from "./CONSTANT";
+import {Constants} from "./Constants";
 
 export interface IAuthConfig {
     globalHeaders: Array<Object>;
@@ -47,7 +47,7 @@ const AuthConfigDefaults: IAuthConfig = {
     headerPrefix: null,
     tokenName: AuthConfigConsts.DEFAULT_TOKEN_NAME,
     tokenGetter: () => {
-        var currentUser = JSON.parse(localStorage.getItem(CONSTANT.CURRENT_USER));
+        var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
         var token = currentUser && currentUser.token;
         return token;
     },
@@ -76,7 +76,7 @@ export class AuthConfig {
 
         if (config.tokenName && !config.tokenGetter) {
             this._config.tokenGetter = () => {
-                var currentUser = JSON.parse(localStorage.getItem(CONSTANT.CURRENT_USER));
+                var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
                 var token = currentUser && currentUser.token;
                 return token;
             };

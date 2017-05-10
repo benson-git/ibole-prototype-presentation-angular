@@ -4,10 +4,11 @@ import { Observable } from 'rxjs';
 import 'rxjs/add/operator/map'
 
 import { User } from '../models/index';
+import {AuthHttp} from "../auth/auth-jwt";
 
 @Injectable()
 export class UserService {
-    constructor(private http: Http) {}
+    constructor(private http: AuthHttp) {}
 
     getUsers(): Observable<User[]> {
         // add authorization header with jwt token
