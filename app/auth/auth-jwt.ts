@@ -24,20 +24,17 @@ export interface IAuthConfig {
     headerPrefix: string;
     noTokenScheme?: boolean;
     tokenGetter: () => string | Promise<string>;
-    tokenName: string;
 }
 
 export interface IAuthConfigOptional {
     headerName?: string;
     headerPrefix?: string;
-    tokenName?: string;
     tokenGetter?: () => string | Promise<string>;
     globalHeaders?: Array<Object>;
     noTokenScheme?: boolean;
 }
 
 export class AuthConfigConsts {
-    public static DEFAULT_TOKEN_NAME = 'token';
     public static DEFAULT_HEADER_NAME = 'Authorization';
     public static HEADER_PREFIX_BEARER = 'Bearer ';
 }
@@ -45,7 +42,6 @@ export class AuthConfigConsts {
 const AuthConfigDefaults: IAuthConfig = {
     headerName: AuthConfigConsts.DEFAULT_HEADER_NAME,
     headerPrefix: null,
-    tokenName: AuthConfigConsts.DEFAULT_TOKEN_NAME,
     tokenGetter: () => {
         var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
         var token = currentUser && currentUser.token;
@@ -74,7 +70,7 @@ export class AuthConfig {
             this._config.headerPrefix = AuthConfigConsts.HEADER_PREFIX_BEARER;
         }
 
-        if (config.tokenName && !config.tokenGetter) {
+        if (!config.tokenGetter) {
             this._config.tokenGetter = () => {
                 var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
                 var token = currentUser && currentUser.token;
@@ -233,6 +229,132 @@ function objectAssign(target: any, ...source: any[]) {
     }
     return to;
 }
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~Start of token decode and token expiration time checking~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+//https://github.com/ninjatronic/angular-base64/blob/master/angular-base64.js
+
+/**
+ * Helper class to decode and find JWT expiration.
+ */
+
+export class JwtHelper {
+
+    private PADCHAR = '=';
+    private ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
+
+    private getByte64(s: string, i: number) : number {
+        var idx = this.ALPHA.indexOf(s.charAt(i));
+        if (idx === -1) {
+            throw "Cannot decode base64";
+        }
+        return idx;
+    }
+
+    public base64Decode(s: string) : string {
+        // convert to string
+        s = "" + s;
+        var pads, i, b10;
+        var imax = s.length;
+        if (imax === 0) {
+            return s;
+        }
+
+        if (imax % 4 !== 0) {
+            throw "Cannot decode base64";
+        }
+
+        pads = 0;
+        if (s.charAt(imax - 1) === this.PADCHAR) {
+            pads = 1;
+            if (s.charAt(imax - 2) === this.PADCHAR) {
+                pads = 2;
+            }
+            // either way, we want to ignore this last block
+            imax -= 4;
+        }
+
+        var x = [];
+        for (i = 0; i < imax; i += 4) {
+            b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12) |
+                (this.getByte64(s, i + 2) << 6) | this.getByte64(s, i + 3);
+            x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff, b10 & 0xff));
+        }
+
+        switch (pads) {
+            case 1:
+                b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12) | (this.getByte64(s, i + 2) << 6);
+                x.push(String.fromCharCode(b10 >> 16, (b10 >> 8) & 0xff));
+                break;
+            case 2:
+                b10 = (this.getByte64(s, i) << 18) | (this.getByte64(s, i + 1) << 12);
+                x.push(String.fromCharCode(b10 >> 16));
+                break;
+        }
+        return x.join('');
+    }
+
+    public decodeToken(token: string): any {
+        let parts = token.split('.');
+
+        if (parts.length !== 3) {
+            throw new Error('JWT must have 3 parts');
+        }
+
+        let decoded = this.base64Decode(parts[1]);
+        if (!decoded) {
+            throw new Error('Cannot decode the token');
+        }
+
+        return JSON.parse(decoded);
+    }
+
+    public getTokenExpirationDate(token: string): Date {
+        let decoded: any;
+        decoded = this.decodeToken(token);
+
+        if (!decoded.hasOwnProperty('exp')) {
+            return null;
+        }
+        let date = new Date(0); // The 0 here is the key, which sets the date to the epoch
+        date.setUTCSeconds(decoded.exp);
+
+        return date;
+    }
+
+    public getTokenExpiration(token: string): number {
+        let decoded: any;
+        decoded = this.decodeToken(token);
+
+        if (!decoded.hasOwnProperty('exp')) {
+            return -1;
+        }
+        return decoded.exp;
+    }
+
+    public isTokenExpiredWithExp(exp: number, offsetSeconds?: number): boolean {
+        offsetSeconds = offsetSeconds || 0;
+        if (exp == -1) {
+            return false;
+        }
+        let date = new Date(0); // The 0 here is the key, which sets the date to the epoch
+        date.setUTCSeconds(exp);
+        // Token expired?
+        return !(date.valueOf() > (new Date().valueOf() + (offsetSeconds * 1000)));
+    }
+
+    public isTokenExpired(token: string, offsetSeconds?: number): boolean {
+        let date = this.getTokenExpirationDate(token);
+        offsetSeconds = offsetSeconds || 0;
+
+        if (date == null) {
+            return false;
+        }
+        // Token expired?
+        return !(date.valueOf() > (new Date().valueOf() + (offsetSeconds * 1000)));
+    }
+}
+
+//~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~End of token decode and token expiration time checking~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 export const AUTH_PROVIDERS: Provider[] = [
     {
