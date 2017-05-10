@@ -2,7 +2,7 @@
 
 import { LoginComponent } from './login/index';
 import { HomeComponent } from './home/index';
-import { AuthGuard } from './guards/index';
+import { AuthGuard } from './auth/index';
 
 const appRoutes: Routes = [
     { path: 'login', component: LoginComponent },

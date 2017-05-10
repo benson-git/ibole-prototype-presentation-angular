@@ -1,7 +1,7 @@
 ﻿import { Component, OnInit } from '@angular/core';
 import { Router } from '@angular/router';
 
-import { AuthenticationService } from '../services/index';
+import { AuthService } from '../auth/index';
 
 @Component({
     moduleId: module.id,
@@ -15,16 +15,16 @@ export class LoginComponent implements OnInit {
 
     constructor(
         private router: Router,
-        private authenticationService: AuthenticationService) { }
+        private authService: AuthService) { }
 
     ngOnInit() {
         // reset login status
-        this.authenticationService.logout();
+        this.authService.logout();
     }
 
     login() {
         this.loading = true;
-        this.authenticationService.login(this.model.username, this.model.password)
+        this.authService.login('/api/v1/authenticate', this.model.username, this.model.password)
             .subscribe(result => {
                 if (result === true) {
                     this.router.navigate(['/']);

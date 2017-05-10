@@ -12,16 +12,19 @@ import { BaseRequestOptions } from '@angular/http';
 import { AppComponent }  from './app.component';
 import { routing }        from './app.routing';
 
-import { AuthGuard } from './guards/index';
-import { AuthenticationService, UserService } from './services/index';
+import { AuthGuard } from './auth/index';
+
 import { LoginComponent } from './login/index';
 import { HomeComponent } from './home/index';
+import {AuthModule} from "./auth/auth.module";
+import {UserService} from "./services/user.service";
 
 @NgModule({
     imports: [
         BrowserModule,
         FormsModule,
         HttpModule,
+        AuthModule,
         routing
     ],
     declarations: [
@@ -30,14 +33,12 @@ import { HomeComponent } from './home/index';
         HomeComponent
     ],
     providers: [
-        AuthGuard,
-        AuthenticationService,
         UserService,
         Logger,
         // providers used to create fake backend
         //fakeBackendProvider,
         //MockBackend,
-        BaseRequestOptions
+        //BaseRequestOptions
     ],
     bootstrap: [AppComponent]
 })
