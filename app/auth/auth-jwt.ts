@@ -43,11 +43,7 @@ export class AuthConfigConsts {
 const AuthConfigDefaults: IAuthConfig = {
     headerName: AuthConfigConsts.DEFAULT_HEADER_NAME,
     headerPrefix: null,
-    tokenGetter: () => {
-        var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
-        var token = currentUser && currentUser.token;
-        return token;
-    },
+    tokenGetter: () => getTokenFromLocalStorage(),
     globalHeaders: [],
     noTokenScheme: false
 };
@@ -72,11 +68,7 @@ export class AuthConfig {
         }
 
         if (!config.tokenGetter) {
-            this._config.tokenGetter = () => {
-                var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
-                var token = currentUser && currentUser.token;
-                return token;
-            };
+            this._config.tokenGetter = () => getTokenFromLocalStorage();
         }
     }
 
@@ -97,7 +89,10 @@ export class AuthHttpError extends Error {
 export class AuthHttp {
 
     private config: IAuthConfig;
+    private jwtHelper = new JwtHelper();
     public tokenStream: Observable<string>;
+    //token expiration time in number
+    public exp: number = -1;
 
     constructor(options: AuthConfig, private http: Http, private defOpts?: RequestOptions) {
         this.config = options.getConfig();
@@ -126,9 +121,35 @@ export class AuthHttp {
         return this.request(new Request(this.mergeOptions(options, this.defOpts)));
     }
 
-    public requestWithToken(req: Request, token: string): Observable<Response> {
+    public handleToken(req: Request, token: string): Observable<Response> {
         req.headers.set(this.config.headerName, this.config.headerPrefix + token);
-        return this.http.request(req);
+        return this.http.request(req).map( res => {
+            if (this.exp == -1) {
+                let currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+                this.exp = currentUser && currentUser.exp;
+            } else if (this.jwtHelper.isTokenExpiredWithExp(this.exp, 1)){
+                let updatedToken = this.parseAuthenticationHeader(res);
+                this.exp  = this.jwtHelper.getTokenExpiration(updatedToken);
+                let currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+                localStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: currentUser && currentUser.username,
+                    token: updatedToken, exp: this.exp }));
+                console.log("request token: "+token);
+                console.log("response token: "+updatedToken);
+            }
+            return res;
+        });
+    }
+
+    private parseAuthenticationHeader(response: any) : string {
+        let authorization = response.headers.get(this.config.headerName);
+        let token: string;
+        if (this.config.noTokenScheme) {
+            token = authorization;
+        } else {
+            let authParts = authorization.split(" ");
+            token = authParts && authParts[1];
+        }
+        return token;
     }
 
     public setGlobalHeaders(headers: Array<Object>, request: Request | RequestOptionsArgs) {
@@ -157,9 +178,9 @@ export class AuthHttp {
         return Observable.defer(() => {
             let token: string | Promise<string> = this.config.tokenGetter();
             if (token instanceof Promise) {
-                return Observable.fromPromise(token).mergeMap((jwtToken: string) => this.requestWithToken(req, jwtToken));
+                return Observable.fromPromise(token).mergeMap((jwtToken: string) => this.handleToken(req, jwtToken));
             } else {
-                return this.requestWithToken(req, token);
+                return this.handleToken(req, token);
             }
         });
     }
@@ -196,6 +217,12 @@ export class AuthHttp {
 
 let hasOwnProperty = Object.prototype.hasOwnProperty;
 let propIsEnumerable = Object.prototype.propertyIsEnumerable;
+
+function  getTokenFromLocalStorage() {
+    var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+    var token = currentUser && currentUser.token;
+    return token;
+}
 
 function toObject(val: any) {
     if (val === null || val === undefined) {
@@ -327,7 +354,6 @@ export class JwtHelper {
         }
 
         let decoded = this.urlBase64Decode(parts[1]);
-        console.log("token decodedparts:"+decoded)
         if (!decoded) {
             throw new Error('Cannot decode the token');
         }
