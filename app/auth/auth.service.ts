@@ -17,11 +17,17 @@ export class AuthService {
             options)
             .map((response: Response) => {
                 // login successful if there's a jwt token in the response
-                let token = response.json() && response.json().token;
-                if (token) {
-                    // store username and jwt token in local storage to keep user logged in between page refreshes
-                    localStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: username, token: token,
-                        exp: this.jwtHelper.getTokenExpiration(token) }));
+                let tokenInfo = response.json();
+                let accessToken = tokenInfo && tokenInfo.accessToken;
+                let refreshToken = tokenInfo && tokenInfo.refreshToken;
+                if (accessToken && refreshToken) {
+                    // store username and access token in session storage to keep user logged in between page refreshes.
+                    sessionStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: username, token: accessToken,
+                        exp: this.jwtHelper.getTokenExpiration(accessToken) }));
+                    // store username and refresh token in local storage to renew access token from server with this refresh token
+                    // once the access is expired.
+                    localStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: username, token: refreshToken,
+                        exp: this.jwtHelper.getTokenExpiration(refreshToken) }));
                     // return true to indicate successful login
                     return true;
                 } else {
@@ -33,12 +39,12 @@ export class AuthService {
 
     logout(): void {
         // clear token remove user from local storage to log user out
-        localStorage.removeItem(Constants.CURRENT_USER);
+        sessionStorage.removeItem(Constants.CURRENT_USER);
     }
 
     loggedIn() {
         // check if token has been saved in local storage
-        var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+        var currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
         var token = currentUser && currentUser.token;
         if (token) {
             // logged in so return true

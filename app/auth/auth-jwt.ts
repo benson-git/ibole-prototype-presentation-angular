@@ -43,7 +43,7 @@ export class AuthConfigConsts {
 const AuthConfigDefaults: IAuthConfig = {
     headerName: AuthConfigConsts.DEFAULT_HEADER_NAME,
     headerPrefix: null,
-    tokenGetter: () => getTokenFromLocalStorage(),
+    tokenGetter: () => getAccessTokenFromSessionStorage(),
     globalHeaders: [],
     noTokenScheme: false
 };
@@ -68,7 +68,7 @@ export class AuthConfig {
         }
 
         if (!config.tokenGetter) {
-            this._config.tokenGetter = () => getTokenFromLocalStorage();
+            this._config.tokenGetter = () => getAccessTokenFromSessionStorage();
         }
     }
 
@@ -125,13 +125,13 @@ export class AuthHttp {
         req.headers.set(this.config.headerName, this.config.headerPrefix + token);
         return this.http.request(req).map( res => {
             if (this.exp == -1) {
-                let currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+                let currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
                 this.exp = currentUser && currentUser.exp;
             } else if (this.jwtHelper.isTokenExpiredWithExp(this.exp, 1)){
                 let updatedToken = this.parseAuthenticationHeader(res);
                 this.exp  = this.jwtHelper.getTokenExpiration(updatedToken);
-                let currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
-                localStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: currentUser && currentUser.username,
+                let currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
+                sessionStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: currentUser && currentUser.username,
                     token: updatedToken, exp: this.exp }));
                 console.log("request token: "+token);
                 console.log("response token: "+updatedToken);
@@ -218,8 +218,8 @@ export class AuthHttp {
 let hasOwnProperty = Object.prototype.hasOwnProperty;
 let propIsEnumerable = Object.prototype.propertyIsEnumerable;
 
-function  getTokenFromLocalStorage() {
-    var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+function  getAccessTokenFromSessionStorage() {
+    var currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
     var token = currentUser && currentUser.token;
     return token;
 }
