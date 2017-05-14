@@ -8,8 +8,8 @@ export class AuthGuard implements CanActivate {
     constructor(private router: Router, private authService: AuthService) { }
 
     canActivate() {
-        if (this.authService.loggedIn()) {
-            // logged in so return true
+        if (this.authService.hasCredentials()) {
+            // logged in and not in expired, so return true
             return true;
         }
 

@@ -25,6 +25,7 @@ export interface IAuthConfig {
     headerPrefix: string;
     noTokenScheme?: boolean;
     tokenGetter: () => string | Promise<string>;
+    renewUrl: string;
 }
 
 export interface IAuthConfigOptional {
@@ -33,6 +34,7 @@ export interface IAuthConfigOptional {
     tokenGetter?: () => string | Promise<string>;
     globalHeaders?: Array<Object>;
     noTokenScheme?: boolean;
+    renewUrl?: string;
 }
 
 export class AuthConfigConsts {
@@ -45,7 +47,8 @@ const AuthConfigDefaults: IAuthConfig = {
     headerPrefix: null,
     tokenGetter: () => getAccessTokenFromSessionStorage(),
     globalHeaders: [],
-    noTokenScheme: false
+    noTokenScheme: false,
+    renewUrl: '/api/v1/auth/renew',
 };
 
 /**
@@ -122,22 +125,55 @@ export class AuthHttp {
     }
 
     public handleToken(req: Request, token: string): Observable<Response> {
+       //init load or handling page refresh
+        if (this.exp == -1) {
+            let currentSessionUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
+            this.exp = currentSessionUser && currentSessionUser.exp;
+        }
+        //access-token expired handling process
+        if (this.jwtHelper.isTokenExpiredWithExp(this.exp, 1)){
+            console.log("Access token is expired!");
+            let currentLocalUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
+            let refreshToken = currentLocalUser.token;
+            let headers = new Headers({ 'Content-Type': 'application/json;charset=UTF-8' });
+            let options = new RequestOptions({ headers: headers });
+            let observable : Observable<Response>;
+            observable = this.http.post(this.config.renewUrl, JSON.stringify({ refreshToken: refreshToken }), options)
+                .map((response: Response) => {
+                    let tokenRenewResponse = response.json();
+                    console.log("Token status from response: "+tokenRenewResponse.tokenStatus);
+                    if(tokenRenewResponse && !tokenRenewResponse.loginRequired) {
+                        token = tokenRenewResponse.accessToken;
+                        let newExp = this.jwtHelper.getTokenExpiration(token);
+                        sessionStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: currentLocalUser && currentLocalUser.username,
+                            token: tokenRenewResponse.token, exp: newExp}));
+                    } else {
+                            console.log("Refresh token is invalid or has expired!");
+                            return Observable.throw(new AuthHttpError(JSON.stringify(
+                                {status: '401', message: 'JWT is invalid or has expired'})));
+                    }
+                }).catch((err: Response): any => {
+                        return Observable.throw(err);
+                });
+            //observable.
+        }
+    //
+    // .catch((err, source) => {
+    //         if (err.status  == 401 && err.url.search('/authenticate') == -1 ) {
+    //             this._router.navigate(['/login']);
+    //             return Observable.empty();
+    //         } else {
+    //             return Observable.throw(err);
+    //         }
+    //     });
+
         req.headers.set(this.config.headerName, this.config.headerPrefix + token);
-        return this.http.request(req).map( res => {
-            if (this.exp == -1) {
-                let currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
-                this.exp = currentUser && currentUser.exp;
-            } else if (this.jwtHelper.isTokenExpiredWithExp(this.exp, 1)){
-                let updatedToken = this.parseAuthenticationHeader(res);
-                this.exp  = this.jwtHelper.getTokenExpiration(updatedToken);
-                let currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
-                sessionStorage.setItem(Constants.CURRENT_USER, JSON.stringify({ username: currentUser && currentUser.username,
-                    token: updatedToken, exp: this.exp }));
-                console.log("request token: "+token);
-                console.log("response token: "+updatedToken);
-            }
-            return res;
-        });
+        return this.http.request(req);
+    }
+
+    private handleError(error: any): Promise<any> {
+        console.error('An error occurred', error);
+        return Promise.reject(error.message || error);
     }
 
     private parseAuthenticationHeader(response: any) : string {
@@ -167,13 +203,8 @@ export class AuthHttp {
         if (typeof url === 'string') {
             return this.get(url, options); // Recursion: transform url from String to Request
         }
-        // else if ( ! url instanceof Request ) {
-        //   throw new Error('First argument must be a url string or Request instance.');
-        // }
-
         // from this point url is always an instance of Request;
         let req: Request = url as Request;
-
         // Create a cold observable and load the token just in time
         return Observable.defer(() => {
             let token: string | Promise<string> = this.config.tokenGetter();

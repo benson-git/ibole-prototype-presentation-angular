@@ -38,17 +38,22 @@ export class AuthService {
     }
 
     logout(): void {
-        // clear token remove user from local storage to log user out
+        // clear token remove user from local&session storage to log user out
         sessionStorage.removeItem(Constants.CURRENT_USER);
+        localStorage.removeItem(Constants.CURRENT_USER);
     }
 
-    loggedIn() {
-        // check if token has been saved in local storage
-        var currentUser = JSON.parse(sessionStorage.getItem(Constants.CURRENT_USER));
+    hasCredentials() {
+        var currentUser = JSON.parse(localStorage.getItem(Constants.CURRENT_USER));
         var token = currentUser && currentUser.token;
-        if (token) {
+        var exp = currentUser && currentUser.exp;
+        var expired = this.jwtHelper.isTokenExpiredWithExp(exp, 1);
+        // check if token has been saved in local storage and if refresh token is expired
+        if (token && !expired) {
             // logged in so return true
             return true;
+        } else {
+            return false;
         }
     }
 }
