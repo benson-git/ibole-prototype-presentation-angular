@@ -9,7 +9,7 @@ import {AuthGuard} from "./auth.guard";
 
 export function authHttpServiceFactory(http: Http, options: RequestOptions) {
     return new AuthHttp(new AuthConfig({
-        //tokenGetter: (() => sessionStorage.getItem('token')),
+        renewUrl: '/api/v1/auth/renew',
         globalHeaders: [{'Content-Type':'application/json;charset=UTF-8'}],
     }), http, options);
 }
