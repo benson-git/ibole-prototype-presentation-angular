@@ -1,11 +1,11 @@
-﻿import { NgModule }      from '@angular/core';
+﻿import {ErrorHandler, NgModule}      from '@angular/core';
 import { BrowserModule } from '@angular/platform-browser';
 import { FormsModule }   from '@angular/forms';
 import { HttpModule }    from '@angular/http';
-import { Logger }        from './helpers/logger.service';
 
 // used to create fake backend
-import { fakeBackendProvider } from './helpers/index';
+import { fakeBackendProvider} from './helpers/index';
+import { GlobalErrorHandler, ErrorLogService } from './error/index';
 import { MockBackend, MockConnection } from '@angular/http/testing';
 import { BaseRequestOptions } from '@angular/http';
 
@@ -18,6 +18,7 @@ import { LoginComponent } from './login/index';
 import { HomeComponent } from './home/index';
 import {AuthModule} from "./auth/auth.module";
 import {UserService} from "./services/user.service";
+import {GLOBAL_ERROR_HANDLER_OPTIONS, GLOBAL_ERROR_HANDLER_PROVIDERS} from "./error/GlobalErrorHandler";
 
 @NgModule({
     imports: [
@@ -33,8 +34,12 @@ import {UserService} from "./services/user.service";
         HomeComponent
     ],
     providers: [
-        UserService,
-        Logger,
+
+        ErrorLogService,
+        GLOBAL_ERROR_HANDLER_PROVIDERS,
+        {provide: GLOBAL_ERROR_HANDLER_OPTIONS, useValue: {rethrowError: false, unwrapError: false}},
+        UserService
+
         // providers used to create fake backend
         //fakeBackendProvider,
         //MockBackend,

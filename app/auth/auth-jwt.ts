@@ -149,7 +149,6 @@ export class AuthHttp {
             new RequestOptions({headers: req.headers}))
             .map((response: Response) => {
                 let tokenRenewResponse = response.json();
-                console.log("Token status from response: " + tokenRenewResponse.tokenStatus);
                 if (!tokenRenewResponse.loginRequired) {
                     console.log("Reset access token: " + tokenRenewResponse.tokenStatus);
                     let newExp = this.jwtHelper.getTokenExpiration(tokenRenewResponse.accessToken);
@@ -164,29 +163,6 @@ export class AuthHttp {
                         {status: '401', message: 'JWT is invalid or has expired'})));
                 }
             }).toPromise();
-    }
-
-    private intercept(observable: Observable<Response>): Observable<Response> {
-
-        return observable.catch((err, source) => {
-            console.log("erro catched: " + err);
-            if (this.isUnauthorized(err.status)) {
-                //logout the user or do what you want
-                //this.authService.logout();
-
-                if (err instanceof Response) {
-                    return Observable.throw(err.json().message || 'backend server error');
-                }
-                return Observable.empty();
-            } else {
-                return Observable.throw(err);
-            }
-        });
-
-    }
-
-    private isUnauthorized(status: number): boolean {
-        return status === 0 || status === 401 || status === 403;
     }
 
     private parseAuthenticationHeader(response: any) : string {
@@ -218,7 +194,7 @@ export class AuthHttp {
         }
         // from this point url is always an instance of Request;
         let req: Request = url as Request;
-        return this.intercept(this.handleToken(req));
+        return this.handleToken(req);
     }
 
     public get(url: string, options?: RequestOptionsArgs): Observable<Response> {
