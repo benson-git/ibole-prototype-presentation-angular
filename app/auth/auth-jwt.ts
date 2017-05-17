@@ -130,12 +130,12 @@ export class AuthHttp {
         //access-token expired handling process
         if (this.jwtHelper.isTokenExpiredWithExp(this.exp, 1)) {
             return Observable.fromPromise(this.renewToken(req)).mergeMap((res: Response)  => {
-                console.log("Continue handle next req.."+req.url.toString());
+                console.log("Renewed token successfully and continue to handle next req: "+req.url.toString());
                 req.headers.set(this.config.headerName, this.config.headerPrefix + getAccessTokenFromSessionStorage());
                 return this.http.request(req);
             });
         } else {
-            console.log("Access token is not expired.");
+            console.log("Access token is update of date!");
             req.headers.set(this.config.headerName, this.config.headerPrefix + getAccessTokenFromSessionStorage());
             return this.http.request(req);
         }
@@ -160,7 +160,7 @@ export class AuthHttp {
                 } else {
                     console.log("Refresh token is invalid or has expired!");
                     return Observable.throw(new AuthHttpError(JSON.stringify(
-                        {status: '401', message: 'JWT is invalid or has expired'})));
+                        {status: '401', statusText: 'JWT is invalid or has expired'})));
                 }
             }).toPromise();
     }
