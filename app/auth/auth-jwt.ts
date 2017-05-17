@@ -41,7 +41,7 @@ export interface IAuthConfigOptional {
 
 export class AuthConfigConsts {
     public static DEFAULT_HEADER_NAME = 'Authorization';
-    public static HEADER_PREFIX_BEARER = 'Bearer ';
+    public static HEADER_PREFIX_BEARER = 'JWT ';
 }
 
 const AuthConfigDefaults: IAuthConfig = {
