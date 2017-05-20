@@ -5,7 +5,7 @@ import 'rxjs/add/operator/map'
 import {AuthHttp, JwtHelper} from "./auth-jwt";
 import {Constants} from "./Constants";
 
-@Injectable()
+@Injectable()  
 export class AuthService {
    //don't need change to AuthHttp here as in login/logout process
     constructor(private http: Http, private jwtHelper: JwtHelper) {}
